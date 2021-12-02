@@ -1,82 +1,103 @@
-import Head from 'next/head'
+import { useEffect, useState } from "react";
+import { userTable } from "../constants/database";
+import useAuth from "../hooks/useAuth";
+import AddProducts from "../components/AddProducts";
+import supabase from "../supabase";
+import { useRealtime } from "react-supabase";
 
 export default function Home() {
+  const [users, setUsers] = useState([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { signIn, signUp, user, signOut, loading } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [{ data, error, fetching }, reexecute] = useRealtime("Product");
+
+  console.log(data);
+
+  useEffect(() => {
+    const mySubscription = supabase
+      .from("Product")
+      .on("*", (payload) => {
+        console.log("Insert received!", payload);
+        setProducts([...products, payload.new]);
+      })
+      .subscribe();
+
+    return () => {
+      mySubscription.unsubscribe();
+    };
+  }, [supabase, products]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase.from("Product").select();
+      setProducts(data);
+    };
+
+    fetchProducts();
+  }, []);
+
+  const logIn = (e) => {
+    e.preventDefault();
+
+    signIn(email, password);
+
+    setEmail("");
+    setPassword("");
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+      <h1>Hello World</h1>
 
-      <main className="flex flex-col items-center justify-center w-full flex-1 px-20 text-center">
-        <h1 className="text-6xl font-bold">
-          Welcome to{' '}
-          <a className="text-blue-600" href="https://nextjs.org">
-            Next.js!
-          </a>
-        </h1>
+      <div>
+        <form className="flex flex-col space-y-3">
+          {!user && (
+            <>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="email"
+              />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="password"
+              />
+            </>
+          )}
 
-        <p className="mt-3 text-2xl">
-          Get started by editing{' '}
-          <code className="p-3 font-mono text-lg bg-gray-100 rounded-md">
-            pages/index.js
-          </code>
-        </p>
+          {user ? (
+            <button onClick={signOut}>Sign out</button>
+          ) : (
+            <>
+              <button
+                className="p-2 bg-green-400"
+                type="submit"
+                onClick={logIn}
+              >
+                Sign In
+              </button>
+              <button className="p-2 bg-red-400" onClick={signUp}>
+                Sign Up
+              </button>
+            </>
+          )}
+        </form>
+      </div>
 
-        <div className="flex flex-wrap items-center justify-around max-w-4xl mt-6 sm:w-full">
-          <a
-            href="https://nextjs.org/docs"
-            className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Documentation &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Find in-depth information about Next.js features and API.
-            </p>
-          </a>
+      <AddProducts />
 
-          <a
-            href="https://nextjs.org/learn"
-            className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Learn &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Learn about Next.js in an interactive course with quizzes!
-            </p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Examples &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Discover and deploy boilerplate example Next.js projects.
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Deploy &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+      {data?.map((product) => (
+        <div key={product.id}>
+          <p>
+            {product.title} is £{product.price}
+          </p>
         </div>
-      </main>
-
-      <footer className="flex items-center justify-center w-full h-24 border-t">
-        <a
-          className="flex items-center justify-center"
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className="h-4 ml-2" />
-        </a>
-      </footer>
+      ))}
     </div>
-  )
+  );
 }
